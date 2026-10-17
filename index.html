@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🎵 ドレミのうた みんなで合奏アプリ（特別支援学校 小学部）</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    @keyframes pulse-ring {
+      0%, 100% { transform: scale(0.97); }
+      50% { transform: scale(1.06); }
+    }
+    .anim-pulse-ring {
+      animation: pulse-ring 0.8s infinite ease-in-out;
+    }
+    @keyframes ready-blink {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0px rgba(250, 204, 21, 0); }
+      50% { transform: scale(1.05); box-shadow: 0 0 28px rgba(250, 204, 21, 0.95); }
+    }
+    .anim-ready {
+      animation: ready-blink 0.55s infinite ease-in-out;
+    }
+    @keyframes pop-hit {
+      0% { transform: scale(0.9); }
+      35% { transform: scale(1.16) translateY(-10px); }
+      100% { transform: scale(1); }
+    }
+    .anim-pop-hit {
+      animation: pop-hit 0.38s cubic-bezier(0.2, 0.8, 0.3, 1);
+    }
+    .glow-gold {
+      box-shadow: 0 0 28px rgba(250, 204, 21, 0.95), inset 0 0 15px rgba(255, 255, 255, 0.8);
+    }
+    .glow-active {
+      box-shadow: 0 0 38px rgba(239, 68, 68, 0.95), inset 0 0 20px rgba(255, 255, 255, 0.9);
+    }
+    ::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col h-screen overflow-hidden">
+
+  <!-- 実音源オーディオ要素 -->
+  <audio id="bgmAudio" src="doremi.mp3" preload="auto"></audio>
+
+  <!-- 音源ファイル未検出時の案内バナー（必要な場合のみ表示） -->
+  <div id="audioFallbackBanner" class="hidden bg-amber-100 border-b-2 border-amber-400 px-4 py-2 flex items-center justify-between text-xs font-bold text-amber-900 z-30">
+    <div>⚠️ 音源ファイル（<code>doremi.mp3</code>）が見つかりません。右のボタンから音源ファイルを選んでください。</div>
+    <label class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-xl cursor-pointer shadow">
+      📁 音源をえらぶ
+      <input type="file" id="audioFileInput" accept="audio/*" class="hidden">
+    </label>
+  </div>
+
+  <!-- ================= HEADER ================= -->
+  <header class="bg-white border-b border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-sm z-20">
+    <!-- タイトル -->
+    <div class="flex items-center space-x-2">
+      <div class="bg-indigo-600 text-white font-black text-lg px-3 py-1 rounded-2xl flex items-center shadow">
+        <span class="mr-1">🎵</span>ドレミのうた
+      </div>
+      <span id="timeDisplay" class="text-xs font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-xl border border-slate-200 tabular-nums">
+        0:00 / 2:41
+      </span>
+    </div>
+
+    <!-- 再生コントロール＆練習モード -->
+    <div class="flex items-center flex-wrap gap-1.5">
+      <button id="btnPlay" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black px-4 py-1.5 rounded-2xl shadow flex items-center text-sm sm:text-base transition-all">
+        <span id="playIcon" class="mr-1">▶️</span>
+        <span id="playText">スタート</span>
+      </button>
+      <button id="btnStop" class="bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-bold px-3 py-1.5 rounded-2xl text-xs sm:text-sm transition-all">
+        ⏮ さいしょへ
+      </button>
+
+      <!-- 指導用：1フレーズ停止 & ループ -->
+      <label class="flex items-center space-x-1 bg-amber-50 border border-amber-300 text-amber-900 px-2.5 py-1.5 rounded-xl text-xs font-black cursor-pointer hover:bg-amber-100 transition-all" title="1つのパート（ド、レなど）が終わるごとに自動で一時停止します">
+        <input type="checkbox" id="chkStepStop" class="accent-amber-600 w-3.5 h-3.5">
+        <span>✋ 1つずつ止める</span>
+      </label>
+      <label class="flex items-center space-x-1 bg-indigo-50 border border-indigo-200 text-indigo-900 px-2.5 py-1.5 rounded-xl text-xs font-black cursor-pointer hover:bg-indigo-100 transition-all" title="現在のパートをくりかえし練習します">
+        <input type="checkbox" id="chkLoop" class="accent-indigo-600 w-3.5 h-3.5">
+        <span>🔁 くりかえし</span>
+      </label>
+    </div>
+
+    <!-- はやさ（再生速度） & セクション移動 -->
+    <div class="flex items-center space-x-2 text-xs font-bold bg-slate-50 px-2.5 py-1 rounded-2xl border border-slate-200">
+      <div class="flex items-center space-x-1">
+        <span>🐢 はやさ:</span>
+        <select id="speedSelect" class="bg-white border border-slate-300 rounded-lg px-1.5 py-0.5 font-black text-indigo-600 cursor-pointer outline-none">
+          <option value="0.75">ゆっくり (75%)</option>
+          <option value="0.85">すこしゆっくり (85%)</option>
+          <option value="1.0" selected>ふつう (100%)</option>
+          <option value="1.1">はやい (110%)</option>
+        </select>
+      </div>
+      <div class="h-4 w-px bg-slate-300"></div>
+      <div class="flex items-center space-x-1">
+        <span>📍 ばしょ:</span>
+        <select id="sectionSelect" class="bg-white border border-slate-300 rounded-xl px-2 py-0.5 font-bold text-slate-700 cursor-pointer outline-none">
+          <!-- JSで動的生成 -->
+        </select>
+      </div>
+    </div>
+
+    <!-- 表示モード切替タブ -->
+    <div class="flex bg-slate-200/90 p-1 rounded-2xl space-x-1">
+      <button data-mode="all" class="mode-tab-btn px-2.5 py-1 rounded-xl font-black text-xs transition-all bg-white text-indigo-700 shadow-sm">
+        📺 ぜんたい
+      </button>
+      <button data-mode="tier1" class="mode-tab-btn px-2.5 py-1 rounded-xl font-bold text-xs text-slate-600 hover:text-slate-900 transition-all">
+        🥁 たいこ・すず
+      </button>
+      <button data-mode="tier2" class="mode-tab-btn px-2.5 py-1 rounded-xl font-bold text-xs text-slate-600 hover:text-slate-900 transition-all">
+        🔔 ベル (1音)
+      </button>
+      <button data-mode="tier3" class="mode-tab-btn px-2.5 py-1 rounded-xl font-bold text-xs text-slate-600 hover:text-slate-900 transition-all">
+        🎹 もっきん
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= 歌詞・拍ガイドバー ================= -->
+  <div class="bg-indigo-900 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-inner">
+    <div class="flex items-center space-x-3">
+      <div id="currentSectionBadge" class="bg-amber-400 text-indigo-950 px-3 py-1 rounded-xl text-sm font-black tracking-wide shadow">
+        まえぶれ
+      </div>
+      <div class="text-lg sm:text-2xl font-black tracking-wider text-white drop-shadow flex items-center">
+        <span id="currentLyrics">「スタート」をおして はじめよう！</span>
+      </div>
+    </div>
+
+    <!-- 次のフレーズ予告 & 拍インジケーター（1・2・3・4） -->
+    <div class="flex items-center space-x-4">
+      <div id="nextCueBanner" class="hidden sm:flex items-center bg-indigo-800/90 border border-indigo-400/50 px-3 py-1 rounded-xl text-xs font-bold text-amber-200">
+        つぎ 👉 <span id="nextSectionText" class="font-black text-white ml-1">ド（🍩 ドーナツ）</span>
+      </div>
+
+      <div class="flex items-center space-x-1.5" id="beatDots">
+        <div class="w-8 h-8 rounded-full bg-indigo-800 border-2 border-indigo-400 flex items-center justify-center font-black text-sm text-indigo-300 beat-dot transition-all" data-beat="1">1</div>
+        <div class="w-8 h-8 rounded-full bg-indigo-800 border-2 border-indigo-400 flex items-center justify-center font-black text-sm text-indigo-300 beat-dot transition-all" data-beat="2">2</div>
+        <div class="w-8 h-8 rounded-full bg-indigo-800 border-2 border-indigo-400 flex items-center justify-center font-black text-sm text-indigo-300 beat-dot transition-all" data-beat="3">3</div>
+        <div class="w-8 h-8 rounded-full bg-indigo-800 border-2 border-indigo-400 flex items-center justify-center font-black text-sm text-indigo-300 beat-dot transition-all" data-beat="4">4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN CONTENT ================= -->
+  <main class="flex-1 overflow-y-auto p-3 flex flex-col justify-between relative bg-slate-100">
+
+    <!-- 1フレーズ自動停止時のオーバーレイモーダル -->
+    <div id="stepStopOverlay" class="hidden absolute inset-0 bg-slate-900/60 backdrop-blur-xs z-30 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 max-w-md w-full border-4 border-amber-400 shadow-2xl text-center space-y-4 anim-pop-hit">
+        <div class="text-5xl">👏✨</div>
+        <div id="stepStopTitle" class="text-2xl font-black text-slate-800">「ド」ばっちり！</div>
+        <p id="stepStopNextInfo" class="text-sm font-bold text-slate-600">つぎは 「レ（🍋 レモン）」 だよ。じゅんびはいいかな？</p>
+        <div class="flex space-x-3 pt-2">
+          <button id="btnRetryPhrase" class="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-black rounded-2xl text-base">
+            🔄 もういちど
+          </button>
+          <button id="btnContinueNext" class="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-base shadow-lg">
+            ▶️ つぎへすすむ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODE 1: 全体モード（大型TV・電子黒板向け） -->
+    <!-- ============================================== -->
+    <div id="viewModeAll" class="view-panel h-full flex flex-col space-y-2.5">
+      
+      <!-- タイムライン（クリックでシーク可能） -->
+      <div class="bg-white rounded-2xl px-3 py-2 border border-slate-200 shadow-sm flex items-center space-x-3">
+        <div class="text-xs font-black text-slate-500 whitespace-nowrap">しんこう:</div>
+        <div id="timelineTrack" class="w-full bg-slate-100 h-6 rounded-full overflow-hidden relative border border-slate-300 cursor-pointer" title="クリックするとその場所から再生できます">
+          <div id="progressBar" class="bg-gradient-to-r from-emerald-400 via-indigo-500 to-rose-500 h-full w-0 transition-all duration-75 rounded-full"></div>
+          <div id="progressMarker" class="absolute inset-0 text-xs font-black text-slate-800 flex items-center justify-center pointer-events-none drop-shadow-xs">
+            じゅんびちゅう
+          </div>
+        </div>
+      </div>
+
+      <!-- 3段グリッド表示 -->
+      <div class="grid grid-rows-3 gap-2.5 flex-1 min-h-[360px]">
+        
+        <!-- 【3段階：もっきん・てっきん（メロディ）】 -->
+        <div class="bg-white rounded-3xl p-3 border-2 border-indigo-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs bg-indigo-100 text-indigo-800 font-black px-2.5 py-0.5 rounded-full">🎹 もっきん・てっきん</span>
+              <span class="font-black text-xs sm:text-sm text-slate-700">ひかる けんばんを たたこう！</span>
+            </div>
+            <div id="tier3CurrentPlayer" class="text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-slate-100 text-slate-600">
+              おやすみ 🤫
+            </div>
+          </div>
+          <!-- 8音バー（タッチでも鳴る） -->
+          <div class="flex justify-around items-center h-full pt-1.5 gap-1.5" id="allViewKeyboards"></div>
+        </div>
+
+        <!-- 【2段階：ベル・チャイム（1音担当）】 -->
+        <div class="bg-white rounded-3xl p-3 border-2 border-amber-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs bg-amber-100 text-amber-800 font-black px-2.5 py-0.5 rounded-full">🔔 ベル・トーンチャイム</span>
+              <span class="font-black text-xs sm:text-sm text-slate-700">「つぎ！」でかまえて、「いま！」でならそう</span>
+            </div>
+            <div id="tier2CueText" class="text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-slate-100 text-slate-600">
+              おやすみ 🤫
+            </div>
+          </div>
+          <!-- ベル8個カード -->
+          <div class="grid grid-cols-8 gap-1.5 items-center h-full pt-1" id="allViewBells"></div>
+        </div>
+
+        <!-- 【1段階：たいこ・タンバリン・すず（リズム）】 -->
+        <div class="bg-white rounded-3xl p-3 border-2 border-emerald-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs bg-emerald-100 text-emerald-800 font-black px-2.5 py-0.5 rounded-full">🥁 たいこ・すず・チャイム</span>
+              <span class="font-black text-xs sm:text-sm text-slate-700">うたにあわせて リズムをならそう！</span>
+            </div>
+            <div id="tier1ActionStatus" class="text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-slate-100 text-slate-600">
+              おやすみ 🤫
+            </div>
+          </div>
+          <!-- 打楽器ビジュアル -->
+          <div class="grid grid-cols-4 gap-2 h-full items-center pt-1" id="allViewDrums"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODE 2: 1段階専用フォーカス（たいこ・すず） -->
+    <!-- ============================================== -->
+    <div id="viewModeTier1" class="view-panel hidden h-full flex flex-col items-center justify-center p-2">
+      <div class="max-w-xl w-full bg-white rounded-3xl p-5 border-4 border-emerald-300 shadow-xl flex flex-col items-center text-center space-y-4">
+        <div class="flex items-center justify-between w-full">
+          <span class="text-emerald-800 font-black text-sm bg-emerald-100 px-3 py-1 rounded-full">🥁 たいこ・すず チーム</span>
+          <div class="flex space-x-1" id="tier1BeatCount">
+            <span class="text-xs font-bold text-slate-500">リズムにあわせてタッチ！</span>
+          </div>
+        </div>
+        
+        <div id="tier1BigChar" class="w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-emerald-500 border-8 border-emerald-200 flex flex-col items-center justify-center text-white shadow-xl transition-transform cursor-pointer select-none">
+          <span id="tier1BigEmoji" class="text-6xl sm:text-7xl">🥁</span>
+          <span id="tier1BigSub" class="text-lg font-black mt-1">ドン！</span>
+        </div>
+
+        <div id="tier1BigText" class="text-2xl sm:text-3xl font-black text-emerald-900 tracking-wider">
+          「ドン・タン・ドン・タン」たたこう！
+        </div>
+
+        <!-- 4種類の打楽器タッチパッド（タンバリンとすずを別音色で分離） -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full pt-1">
+          <button data-drum="bass" class="drum-pad-btn py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black rounded-2xl shadow-md flex flex-col items-center cursor-pointer">
+            <span class="text-3xl">🥁</span>
+            <span class="text-xs sm:text-sm mt-1">たいこ（ドン！）</span>
+          </button>
+          <button data-drum="snare" class="drum-pad-btn py-3 bg-teal-500 hover:bg-teal-600 active:scale-95 text-white font-black rounded-2xl shadow-md flex flex-col items-center cursor-pointer">
+            <span class="text-3xl">🪇</span>
+            <span class="text-xs sm:text-sm mt-1">タンバリン（パン！）</span>
+          </button>
+          <button data-drum="suzu" class="drum-pad-btn py-3 bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-black rounded-2xl shadow-md flex flex-col items-center cursor-pointer">
+            <span class="text-3xl">🔔</span>
+            <span class="text-xs sm:text-sm mt-1">すず（チリン♪）</span>
+          </button>
+          <button data-drum="chime" class="drum-pad-btn py-3 bg-amber-400 hover:bg-amber-500 active:scale-95 text-indigo-950 font-black rounded-2xl shadow-md flex flex-col items-center cursor-pointer">
+            <span class="text-3xl">✨</span>
+            <span class="text-xs sm:text-sm mt-1">キラキラチャイム</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODE 3: 2段階専用フォーカス（ベル・マイ音選択） -->
+    <!-- ============================================== -->
+    <div id="viewModeTier2" class="view-panel hidden h-full flex flex-col justify-between p-1">
+      <!-- 自分の担当音セレクター -->
+      <div class="bg-white rounded-2xl p-2.5 border border-amber-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-black text-amber-900">🔔 じぶんの ベルを えらぼう:</span>
+        <div class="flex flex-wrap gap-1.5" id="myBellSelector"></div>
+      </div>
+
+      <!-- メインの「じゅんび → いま！ならす！」大画面 -->
+      <div id="myBellStageCard" class="flex-1 my-2 bg-white rounded-3xl p-5 border-4 border-amber-300 shadow-xl flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden transition-colors">
+        
+        <!-- 状態バッジ（おやすみ / つぎ じゅんび！ / いま！ならそう！） -->
+        <div id="myBellCueBadge" class="text-xl sm:text-2xl font-black px-6 py-2 rounded-full bg-slate-200 text-slate-700 shadow-xs transition-all">
+          🤫 おやすみ（まっててね）
+        </div>
+
+        <!-- 大きな丸ベルボタン -->
+        <div id="myBellBigCircle" class="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-red-500 text-white flex flex-col items-center justify-center shadow-2xl transition-all duration-150 border-8 border-white cursor-pointer active:scale-95">
+          <span id="myBellBigIcon" class="text-6xl mb-1">🍩</span>
+          <span id="myBellBigNote" class="text-4xl sm:text-5xl font-black">ド</span>
+          <span id="myBellBigWord" class="text-sm sm:text-base font-bold tracking-widest mt-1">ドーナツ</span>
+        </div>
+
+        <!-- カウントダウン＆タイミングガイド -->
+        <div class="w-full max-w-md space-y-1.5">
+          <div class="w-full bg-slate-100 h-8 rounded-full overflow-hidden border-2 border-slate-300 relative">
+            <div id="myBellCountBar" class="bg-amber-400 h-full w-0 transition-all duration-100"></div>
+            <span id="myBellCountText" class="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-800 drop-shadow-xs">
+              でばんまで まってね
+            </span>
+          </div>
+        </div>
+
+        <!-- タップ練習用ボタン -->
+        <button id="tapBellBtn" class="w-full max-w-md py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-lg rounded-2xl shadow-lg transition-transform">
+          🔔 ここをタッチして ベルをならそう！
+        </button>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODE 4: 3段階専用フォーカス（もっきん・てっきん） -->
+    <!-- ============================================== -->
+    <div id="viewModeTier3" class="view-panel hidden h-full flex flex-col justify-between p-1">
+      <div class="bg-white rounded-2xl p-2.5 border border-indigo-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
+        <div class="text-xs font-black text-indigo-900">🎹 たんとうチームを えらぼう:</div>
+        <div class="flex flex-wrap gap-1.5 text-xs font-bold" id="tier3RoleTabs">
+          <button data-player="1" class="tier3-tab-btn px-3 py-1 rounded-xl bg-indigo-600 text-white font-black">🐶 ① ド・レ チーム</button>
+          <button data-player="2" class="tier3-tab-btn px-3 py-1 rounded-xl bg-slate-100 text-slate-600">🐱 ② ミ・ファ チーム</button>
+          <button data-player="3" class="tier3-tab-btn px-3 py-1 rounded-xl bg-slate-100 text-slate-600">🐰 ③ ソ・ラ チーム</button>
+          <button data-player="4" class="tier3-tab-btn px-3 py-1 rounded-xl bg-slate-100 text-slate-600">🐼 ④ シ・うたおう チーム</button>
+        </div>
+      </div>
+
+      <!-- 木琴・鉄琴グラフィック鍵盤（手元練習可能） -->
+      <div class="flex-1 my-2 bg-white rounded-3xl p-4 border-4 border-indigo-200 shadow-xl flex flex-col justify-between">
+        <div class="flex flex-wrap justify-between items-center gap-2 pb-2 border-b border-slate-100">
+          <span id="tier3HelpText" class="text-base sm:text-lg font-black text-indigo-900">
+            🐶 ①チームの ばんが きたら ひかるよ！
+          </span>
+          <span class="text-xs bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold text-indigo-700">👆 けんばんを タッチすると 音がなります</span>
+        </div>
+
+        <div class="flex-1 flex items-end justify-center space-x-2 sm:space-x-3 py-3" id="tier3InteractiveBars"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= FOOTER（音量・補助音設定） ================= -->
+  <footer class="bg-white border-t border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-600 z-20">
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="flex items-center space-x-1.5 bg-slate-100 px-2.5 py-1 rounded-xl">
+        <span>💿 うた・ばんそう音量:</span>
+        <input id="bgmVolume" type="range" min="0" max="1" step="0.05" value="0.85" class="w-20 accent-indigo-600 cursor-pointer">
+      </div>
+
+      <span class="text-slate-400 hidden md:inline">|</span>
+      <span class="text-slate-500">おてほん楽器音:</span>
+      <label class="flex items-center space-x-1 cursor-pointer bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+        <input type="checkbox" id="chkSoundTier3" checked class="accent-indigo-600">
+        <span>🎹 もっきん音</span>
+      </label>
+      <label class="flex items-center space-x-1 cursor-pointer bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
+        <input type="checkbox" id="chkSoundTier2" checked class="accent-amber-500">
+        <span>🔔 ベル音</span>
+      </label>
+      <label class="flex items-center space-x-1 cursor-pointer bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+        <input type="checkbox" id="chkSoundTier1" checked class="accent-emerald-500">
+        <span>🥁 たいこ音</span>
+      </label>
+    </div>
+
+    <div class="flex items-center space-x-2">
+      <span>🔊 おてほん音量:</span>
+      <input id="synthVolume" type="range" min="0" max="1" step="0.05" value="0.55" class="w-20 accent-indigo-600 cursor-pointer">
+    </div>
+  </footer>
+
+  <!-- ================= SCRIPTS ================= -->
+  <script>
+    // =========================================================
+    // 1. Web Audio API シンセ音源エンジン（バグ修正済・いつでも安全に呼べる）
+    // =========================================================
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.tier1Gain = null;
+        this.tier2Gain = null;
+        this.tier3Gain = null;
+        this.initialized = false;
+        this.enabled = { tier1: true, tier2: true, tier3: true };
+        this.masterVol = 0.55;
+      }
+
+      init() {
+        if (this.initialized) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(this.masterVol, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        this.tier1Gain = this.ctx.createGain();
+        this.tier2Gain = this.ctx.createGain();
+        this.tier3Gain = this.ctx.createGain();
+
+        this.tier1Gain.gain.setValueAtTime(this.enabled.tier1 ? 1 : 0, this.ctx.currentTime);
+        this.tier2Gain.gain.setValueAtTime(this.enabled.tier2 ? 1 : 0, this.ctx.currentTime);
+        this.tier3Gain.gain.setValueAtTime(this.enabled.tier3 ? 1 : 0, this.ctx.currentTime);
+
+        this.tier1Gain.connect(this.masterGain);
+        this.tier2Gain.connect(this.masterGain);
+        this.tier3Gain.connect(this.masterGain);
+
+        this.initialized = true;
+      }
+
+      ensureResume() {
+        if (!this.initialized) this.init();
+        if (this.ctx && this.ctx.state === 'suspended') {
+          return this.ctx.resume();
+        }
+        return Promise.resolve();
+      }
+
+      setPartEnabled(part, isEnabled) {
+        this.enabled[part] = isEnabled;
+        if (!this.initialized) return;
+        const targetGain = part === 'tier1' ? this.tier1Gain : part === 'tier2' ? this.tier2Gain : this.tier3Gain;
+        if (targetGain && this.ctx) {
+          targetGain.gain.setValueAtTime(isEnabled ? 1 : 0, this.ctx.currentTime);
+        }
+      }
+
+      setMasterVolume(val) {
+        this.masterVol = val;
+        if (this.initialized && this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(val, this.ctx.currentTime);
+        }
+      }
+
+      getFreq(note) {
+        const table = {
+          'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23,
+          'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+          'C5': 523.25, 'D5': 587.33, 'E5': 659.25
+        };
+        return table[note] || 440;
+      }
+
+      // 木琴・鉄琴サウンド
+      playXylophone(note, duration = 0.35, forcePlay = false) {
+        if (!forcePlay && !this.enabled.tier3) return;
+        this.ensureResume().then(() => {
+          const now = this.ctx.currentTime;
+          const freq = this.getFreq(note);
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.75, now + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(forcePlay ? this.masterGain : this.tier3Gain);
+
+          osc.start(now);
+          osc.stop(now + duration);
+        });
+      }
+
+      // デスクベル・トーンチャイムサウンド
+      playBell(note, duration = 1.6, forcePlay = false) {
+        if (!forcePlay && !this.enabled.tier2) return;
+        this.ensureResume().then(() => {
+          const now = this.ctx.currentTime;
+          const freq = this.getFreq(note);
+
+          [1, 2.76, 5.4].forEach((ratio, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq * ratio, now);
+
+            const vol = idx === 0 ? 0.7 : 0.2 / idx;
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            osc.connect(gain);
+            gain.connect(forcePlay ? this.masterGain : this.tier2Gain);
+
+            osc.start(now);
+            osc.stop(now + duration);
+          });
+        });
+      }
+
+      // 打楽器サウンド（PC・タブレット・TVのスピーカーでもはっきり大きく鳴る設計）
+      playDrum(type, forcePlay = false) {
+        if (!forcePlay && !this.enabled.tier1) return;
+        this.ensureResume().then(() => {
+          const now = this.ctx.currentTime;
+          const dest = forcePlay ? this.masterGain : this.tier1Gain;
+
+          if (type === 'bass') {
+            // 【たいこ（ドン！）】
+            // 1) 倍音を含むtriangle波で小型スピーカーでも聴こえる中低音ボディ (240Hz -> 85Hz)
+            const bodyOsc = this.ctx.createOscillator();
+            const bodyGain = this.ctx.createGain();
+            bodyOsc.type = 'triangle';
+            bodyOsc.frequency.setValueAtTime(240, now);
+            bodyOsc.frequency.exponentialRampToValueAtTime(85, now + 0.12);
+            bodyOsc.frequency.exponentialRampToValueAtTime(58, now + 0.38);
+            bodyGain.gain.setValueAtTime(0.001, now);
+            bodyGain.gain.linearRampToValueAtTime(1.1, now + 0.008);
+            bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            bodyOsc.connect(bodyGain);
+            bodyGain.connect(dest);
+            bodyOsc.start(now);
+            bodyOsc.stop(now + 0.4);
+
+            // 2) 皮を叩いた瞬間のパンチ音（sine 340Hz -> 120Hz）
+            const punchOsc = this.ctx.createOscillator();
+            const punchGain = this.ctx.createGain();
+            punchOsc.type = 'sine';
+            punchOsc.frequency.setValueAtTime(340, now);
+            punchOsc.frequency.exponentialRampToValueAtTime(115, now + 0.06);
+            punchGain.gain.setValueAtTime(0.95, now);
+            punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            punchOsc.connect(punchGain);
+            punchGain.connect(dest);
+            punchOsc.start(now);
+            punchOsc.stop(now + 0.12);
+
+            // 3) バチが皮に当たるアタックノイズ（「ドン！」の輪郭）
+            const bufSize = Math.floor(this.ctx.sampleRate * 0.05);
+            const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.3));
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buf;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(750, now);
+            const nGain = this.ctx.createGain();
+            nGain.gain.setValueAtTime(0.8, now);
+            nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+            noise.connect(filter);
+            filter.connect(nGain);
+            nGain.connect(dest);
+            noise.start(now);
+
+          } else if (type === 'snare') {
+            // 【タンバリン（パン！チャッ！）】皮を叩く中音アタック＋短く乾いたジングル音
+            const toneOsc = this.ctx.createOscillator();
+            const toneGain = this.ctx.createGain();
+            toneOsc.type = 'triangle';
+            toneOsc.frequency.setValueAtTime(290, now);
+            toneOsc.frequency.exponentialRampToValueAtTime(145, now + 0.085);
+            toneGain.gain.setValueAtTime(0.85, now);
+            toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+            toneOsc.connect(toneGain);
+            toneGain.connect(dest);
+            toneOsc.start(now);
+            toneOsc.stop(now + 0.11);
+
+            const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1800;
+            filter.Q.value = 1.2;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.7, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(dest);
+            noise.start(now);
+
+          } else if (type === 'suzu') {
+            // 【すず（チリン・シャン♪）】複数の高域ベル倍音が2段で揺れる澄んだ鈴の音
+            const suzuFreqs = [3300, 4180, 5280, 6600];
+            // 1回目の「チッ」と45ms後の「リン〜♪」の2段バウンスで鈴らしさを表現
+            [0, 0.045].forEach((offset, bounceIdx) => {
+              const dur = bounceIdx === 0 ? 0.08 : 0.32;
+              suzuFreqs.forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq + (bounceIdx * 30), now + offset);
+                const peak = (bounceIdx === 0 ? 0.18 : 0.26) / (1 + idx * 0.25);
+                gain.gain.setValueAtTime(0.001, now + offset);
+                gain.gain.linearRampToValueAtTime(peak, now + offset + 0.005);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + dur);
+                osc.connect(gain);
+                gain.connect(dest);
+                osc.start(now + offset);
+                osc.stop(now + offset + dur + 0.01);
+              });
+            });
+
+            // 鈴の中の鉄球が転がる超高域シャカシャカ成分
+            const sBufSize = Math.floor(this.ctx.sampleRate * 0.22);
+            const sBuf = this.ctx.createBuffer(1, sBufSize, this.ctx.sampleRate);
+            const sData = sBuf.getChannelData(0);
+            for (let i = 0; i < sBufSize; i++) sData[i] = Math.random() * 2 - 1;
+            const sNoise = this.ctx.createBufferSource();
+            sNoise.buffer = sBuf;
+            const sFilter = this.ctx.createBiquadFilter();
+            sFilter.type = 'highpass';
+            sFilter.frequency.value = 5500;
+            const sGain = this.ctx.createGain();
+            sGain.gain.setValueAtTime(0.22, now);
+            sGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+            sNoise.connect(sFilter);
+            sFilter.connect(sGain);
+            sGain.connect(dest);
+            sNoise.start(now);
+
+          } else if (type === 'chime') {
+            // 【キラキラチャイム（シャララ〜ン）】
+            [1318.5, 1567.98, 2093.0, 2637.0, 3135.96].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.value = freq;
+              gain.gain.setValueAtTime(0.001, now + idx * 0.045);
+              gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.045 + 0.01);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.045 + 0.75);
+              osc.connect(gain);
+              gain.connect(dest);
+              osc.start(now + idx * 0.045);
+              osc.stop(now + idx * 0.045 + 0.8);
+            });
+          }
+        });
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    // =========================================================
+    // 2. ベル＆鍵盤カラー定義（市販のカラーベル・ドレミパイプ準拠）
+    // =========================================================
+    const BELL_PLAYERS = [
+      { id: 'C4', note: 'C4', label: 'ド', word: 'ドーナツ', color: 'bg-red-500', hex: '#ef4444', border: 'border-red-400', icon: '🍩' },
+      { id: 'D4', note: 'D4', label: 'レ', word: 'レモン', color: 'bg-orange-500', hex: '#f97316', border: 'border-orange-400', icon: '🍋' },
+      { id: 'E4', note: 'E4', label: 'ミ', word: 'みんな', color: 'bg-amber-400', hex: '#f59e0b', border: 'border-amber-400', icon: '😊' },
+      { id: 'F4', note: 'F4', label: 'ファ', word: 'ファイト', color: 'bg-emerald-500', hex: '#10b981', border: 'border-emerald-400', icon: '✊' },
+      { id: 'G4', note: 'G4', label: 'ソ', word: 'あおいそら', color: 'bg-sky-500', hex: '#0ea5e9', border: 'border-sky-400', icon: '🌤️' },
+      { id: 'A4', note: 'A4', label: 'ラ', word: 'ラッパ', color: 'bg-blue-600', hex: '#2563eb', border: 'border-blue-400', icon: '🎺' },
+      { id: 'B4', note: 'B4', label: 'シ', word: 'しあわせ', color: 'bg-purple-500', hex: '#a855f7', border: 'border-purple-400', icon: '🌷' },
+      { id: 'C5', note: 'C5', label: 'たかいド', word: 'うたいましょう', color: 'bg-rose-500', hex: '#f43f5e', border: 'border-rose-400', icon: '👑' },
+    ];
+
+    // =========================================================
+    // 3. 添付音源（doremi.mp3）完全同期タイムラインスコア
+    //    音源解析による実測値: 歌い出し起点 = 12.10秒, BPM = 109.0
+    //    (1拍 = 60/109 = 0.55046秒, 1フレーズ8拍 = 4.40367秒)
+    // =========================================================
+    const SONG_BPM = 109.0;
+    const BEAT_SEC = 60 / SONG_BPM; // 0.5504587秒
+
+    const SECTIONS = [
+      // --- イントロ ---
+      {
+        id: 'intro_1', start: 0.00, end: 6.60,
+        badge: 'まえぶれ', navLabel: '🎵 まえぶれ（イントロ）',
+        lyrics: '「さあみなさん、ドレミのうたを うたいましょう！」',
+        bellCue: null, t3Player: null, drumPattern: 'intro',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 2, n: 'E4' }, { b: 3, n: 'G4' }, { b: 4, n: 'C5' }
+        ]
+      },
+      {
+        id: 'intro_2', start: 6.60, end: 12.10,
+        badge: 'じゅんび', navLabel: '🥁 マーチ（じゅんび 10拍）',
+        lyrics: 'たいこの リズムに あわせて じゅんびしよう！（1・2・3・4）',
+        bellCue: null, nextBellCue: 'C4', t3Player: null, drumPattern: 'march',
+        notes: []
+      },
+
+      // --- 1番（0:12.10 〜 0:47.33） ---
+      {
+        id: 'v1_c', start: 12.10, end: 16.50,
+        badge: '1ばん：ド', navLabel: '🍩 1ばん：ド（ドーナツ）',
+        lyrics: 'ドー は ドーナツ の ドー 🍩',
+        bellCue: 'C4', hitBeats: [1, 7], nextBellCue: 'D4', t3Player: 1, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 2.5, n: 'D4' }, { b: 3, n: 'E4' }, { b: 4.5, n: 'C4' },
+          { b: 5, n: 'E4' }, { b: 6, n: 'C4' }, { b: 7, n: 'E4' }
+        ]
+      },
+      {
+        id: 'v1_d', start: 16.50, end: 20.90,
+        badge: '1ばん：レ', navLabel: '🍋 1ばん：レ（レモン）',
+        lyrics: 'レー は レモン の レー 🍋',
+        bellCue: 'D4', hitBeats: [1, 5], nextBellCue: 'E4', t3Player: 1, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'D4' }, { b: 2.5, n: 'E4' }, { b: 3, n: 'F4' }, { b: 3.5, n: 'F4' },
+          { b: 4, n: 'E4' }, { b: 4.5, n: 'D4' }, { b: 5, n: 'F4' }
+        ]
+      },
+      {
+        id: 'v1_e', start: 20.90, end: 25.31,
+        badge: '1ばん：ミ', navLabel: '😊 1ばん：ミ（みんな）',
+        lyrics: 'ミー は みんな の ミー 😊',
+        bellCue: 'E4', hitBeats: [1, 7], nextBellCue: 'F4', t3Player: 2, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'E4' }, { b: 2.5, n: 'F4' }, { b: 3, n: 'G4' }, { b: 4.5, n: 'E4' },
+          { b: 5, n: 'G4' }, { b: 6, n: 'E4' }, { b: 7, n: 'G4' }
+        ]
+      },
+      {
+        id: 'v1_f', start: 25.31, end: 29.71,
+        badge: '1ばん：ファ', navLabel: '✊ 1ばん：ファ（ファイト）',
+        lyrics: 'ファー は ファイト の ファー ✊',
+        bellCue: 'F4', hitBeats: [1, 5], nextBellCue: 'G4', t3Player: 2, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'F4' }, { b: 2.5, n: 'G4' }, { b: 3, n: 'A4' }, { b: 3.5, n: 'A4' },
+          { b: 4, n: 'G4' }, { b: 4.5, n: 'F4' }, { b: 5, n: 'A4' }
+        ]
+      },
+      {
+        id: 'v1_g', start: 29.71, end: 34.11,
+        badge: '1ばん：ソ', navLabel: '🌤️ 1ばん：ソ（あおいそら）',
+        lyrics: 'ソー は あおい そらー 🌤️',
+        bellCue: 'G4', hitBeats: [1, 5], nextBellCue: 'A4', t3Player: 3, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'G4' }, { b: 2.5, n: 'C4' }, { b: 3, n: 'D4' }, { b: 3.5, n: 'E4' },
+          { b: 4, n: 'F4' }, { b: 4.5, n: 'G4' }, { b: 5, n: 'A4' }
+        ]
+      },
+      {
+        id: 'v1_a', start: 34.11, end: 38.52,
+        badge: '1ばん：ラ', navLabel: '🎺 1ばん：ラ（ラッパ）',
+        lyrics: 'ラー は ラッパ の ラー 🎺',
+        bellCue: 'A4', hitBeats: [1, 5], nextBellCue: 'B4', t3Player: 3, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'A4' }, { b: 2.5, n: 'D4' }, { b: 3, n: 'E4' }, { b: 3.5, n: 'F4' },
+          { b: 4, n: 'G4' }, { b: 4.5, n: 'A4' }, { b: 5, n: 'B4' }
+        ]
+      },
+      {
+        // 8拍目の「さ(8.0:C5)・あ(8.5:B4)」のアウフタクトまで正確に再現
+        id: 'v1_b', start: 38.52, end: 42.92,
+        badge: '1ばん：シ', navLabel: '🌷 1ばん：シ（しあわせ）',
+        lyrics: 'シー は しあわせ よー 🌷（さあ…）',
+        bellCue: 'B4', hitBeats: [1, 5], nextBellCue: 'C5', t3Player: 4, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'B4' }, { b: 2.5, n: 'E4' }, { b: 3, n: 'F4' }, { b: 3.5, n: 'G4' },
+          { b: 4, n: 'A4' }, { b: 4.5, n: 'B4' }, { b: 5, n: 'C5' },
+          { b: 8, n: 'C5' }, { b: 8.5, n: 'B4' }
+        ]
+      },
+      {
+        // 「（さあ）う(1:A4)・た(2:F4)・い(3:B4)・ま(4:G4)・しょー(5:C5)」四分音符で1拍ずつ進行
+        id: 'v1_bridge', start: 42.92, end: 47.33,
+        badge: '1ばん：つなぎ', navLabel: '👑 1ばん：さあ うたいましょう',
+        lyrics: 'さあ う・た・い・ま・しょう〜！ 👑',
+        bellCue: 'C5', hitBeats: [1, 5], nextBellCue: 'C4', t3Player: 4, drumPattern: 'chime_end',
+        notes: [
+          { b: 1, n: 'A4' }, { b: 2, n: 'F4' }, { b: 3, n: 'B4' }, { b: 4, n: 'G4' }, { b: 5, n: 'C5' }
+        ]
+      },
+
+      // --- 2番：かけあい（0:47.33 〜 1:22.55） ---
+      {
+        id: 'v2_c', start: 47.33, end: 51.73,
+        badge: '2ばん：ド', navLabel: '🍩 2ばん：ド！（かけあい）',
+        lyrics: 'ド！（🔔ド！）は ドーナツ の ドー 🍩',
+        bellCue: 'C4', hitBeats: [2, 7], nextBellCue: 'D4', t3Player: 1, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 2, n: 'C4' }, { b: 2.5, n: 'D4' }, { b: 3, n: 'E4' }, { b: 4.5, n: 'C4' },
+          { b: 5, n: 'E4' }, { b: 6, n: 'C4' }, { b: 7, n: 'E4' }
+        ]
+      },
+      {
+        id: 'v2_d', start: 51.73, end: 56.13,
+        badge: '2ばん：レ', navLabel: '🍋 2ばん：レ！（かけあい）',
+        lyrics: 'レ！（🔔レ！）は レモン の レー 🍋',
+        bellCue: 'D4', hitBeats: [2, 5], nextBellCue: 'E4', t3Player: 1, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'D4' }, { b: 2, n: 'D4' }, { b: 2.5, n: 'E4' }, { b: 3, n: 'F4' }, { b: 3.5, n: 'F4' },
+          { b: 4, n: 'E4' }, { b: 4.5, n: 'D4' }, { b: 5, n: 'F4' }
+        ]
+      },
+      {
+        id: 'v2_e', start: 56.13, end: 60.54,
+        badge: '2ばん：ミ', navLabel: '😊 2ばん：ミ！（かけあい）',
+        lyrics: 'ミ！（🔔ミ！）は みんな の ミー 😊',
+        bellCue: 'E4', hitBeats: [2, 7], nextBellCue: 'F4', t3Player: 2, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'E4' }, { b: 2, n: 'E4' }, { b: 2.5, n: 'F4' }, { b: 3, n: 'G4' }, { b: 4.5, n: 'E4' },
+          { b: 5, n: 'G4' }, { b: 6, n: 'E4' }, { b: 7, n: 'G4' }
+        ]
+      },
+      {
+        id: 'v2_f', start: 60.54, end: 64.94,
+        badge: '2ばん：ファ', navLabel: '✊ 2ばん：ファ！（かけあい）',
+        lyrics: 'ファ！（🔔ファ！）は ファイト の ファー ✊',
+        bellCue: 'F4', hitBeats: [2, 5], nextBellCue: 'G4', t3Player: 2, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'F4' }, { b: 2, n: 'F4' }, { b: 2.5, n: 'G4' }, { b: 3, n: 'A4' }, { b: 3.5, n: 'A4' },
+          { b: 4, n: 'G4' }, { b: 4.5, n: 'F4' }, { b: 5, n: 'A4' }
+        ]
+      },
+      {
+        id: 'v2_g', start: 64.94, end: 69.34,
+        badge: '2ばん：ソ', navLabel: '🌤️ 2ばん：ソ！（かけあい）',
+        lyrics: 'ソ！（🔔ソ！）は あおい そらー 🌤️',
+        bellCue: 'G4', hitBeats: [2, 5], nextBellCue: 'A4', t3Player: 3, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'G4' }, { b: 2, n: 'G4' }, { b: 2.5, n: 'C4' }, { b: 3, n: 'D4' }, { b: 3.5, n: 'E4' },
+          { b: 4, n: 'F4' }, { b: 4.5, n: 'G4' }, { b: 5, n: 'A4' }
+        ]
+      },
+      {
+        id: 'v2_a', start: 69.34, end: 73.75,
+        badge: '2ばん：ラ', navLabel: '🎺 2ばん：ラ！（かけあい）',
+        lyrics: 'ラ！（🔔ラ！）は ラッパ の ラー 🎺',
+        bellCue: 'A4', hitBeats: [2, 5], nextBellCue: 'B4', t3Player: 3, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'A4' }, { b: 2, n: 'A4' }, { b: 2.5, n: 'D4' }, { b: 3, n: 'E4' }, { b: 3.5, n: 'F4' },
+          { b: 4, n: 'G4' }, { b: 4.5, n: 'A4' }, { b: 5, n: 'B4' }
+        ]
+      },
+      {
+        id: 'v2_b', start: 73.75, end: 78.15,
+        badge: '2ばん：シ', navLabel: '🌷 2ばん：シ！（かけあい）',
+        lyrics: 'シ！（🔔シ！）は しあわせ よー 🌷（さあ…）',
+        bellCue: 'B4', hitBeats: [2, 5], nextBellCue: 'C5', t3Player: 4, drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'B4' }, { b: 2, n: 'B4' }, { b: 2.5, n: 'E4' }, { b: 3, n: 'F4' }, { b: 3.5, n: 'G4' },
+          { b: 4, n: 'A4' }, { b: 4.5, n: 'B4' }, { b: 5, n: 'C5' },
+          { b: 8, n: 'C5' }, { b: 8.5, n: 'B4' }
+        ]
+      },
+      {
+        id: 'v2_bridge', start: 78.15, end: 82.55,
+        badge: '2ばん：つなぎ', navLabel: '👑 2ばん：さあ うたいましょう',
+        lyrics: 'さあ う・た・い・ま・しょう〜！ 👑',
+        bellCue: 'C5', hitBeats: [1, 5], nextBellCue: 'ALL', t3Player: 4, drumPattern: 'chime_end',
+        notes: [
+          { b: 1, n: 'A4' }, { b: 2, n: 'F4' }, { b: 3, n: 'B4' }, { b: 4, n: 'G4' }, { b: 5, n: 'C5' }
+        ]
+      },
+
+      // --- 間奏：ドレミファソラシド階段＆かけあい（1:22.55 〜 2:02.19） ---
+      {
+        id: 'scale_up', start: 82.55, end: 86.96,
+        badge: 'かいだん①', navLabel: '🌈 ドレミファソラシド（のぼる）',
+        lyrics: 'ド・レ・ミ・ファ・ソ・ラ・シ・ド！（じゅんばんに ならそう！）',
+        bellCue: 'ALL_SCALE_UP', hitBeats: [1,2,3,4,5,6,7,8], nextBellCue: 'ALL', t3Player: 'ALL', drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 2, n: 'D4' }, { b: 3, n: 'E4' }, { b: 4, n: 'F4' },
+          { b: 5, n: 'G4' }, { b: 6, n: 'A4' }, { b: 7, n: 'B4' }, { b: 8, n: 'C5' }
+        ]
+      },
+      {
+        id: 'scale_down', start: 86.96, end: 91.36,
+        badge: 'かいだん②', navLabel: '🌈 ドシラソファミレド（おりる）',
+        lyrics: 'ド・シ・ラ・ソ・ファ・ミ・レ・ド！（うえから おりよう！）',
+        bellCue: 'ALL_SCALE_DOWN', hitBeats: [1,2,3,4,5,6,7,8], nextBellCue: 'ALL', t3Player: 'ALL', drumPattern: 'march',
+        notes: [
+          { b: 1, n: 'C5' }, { b: 2, n: 'B4' }, { b: 3, n: 'A4' }, { b: 4, n: 'G4' },
+          { b: 5, n: 'F4' }, { b: 6, n: 'E4' }, { b: 7, n: 'D4' }, { b: 8, n: 'C4' }
+        ]
+      },
+      {
+        id: 'interlude_play', start: 91.36, end: 122.19,
+        badge: 'みんなでリズム', navLabel: '✨ ドミミ・ミソソ（リズムあそび）',
+        lyrics: 'ドミミ・ミソソ・レファファ・ラシシ！ リズムにのって ならそう！',
+        bellCue: 'ALL', hitBeats: [1, 5], nextBellCue: 'C4', t3Player: 'ALL', drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 2, n: 'E4' }, { b: 3, n: 'G4' }, { b: 4, n: 'C5' },
+          { b: 5, n: 'D4' }, { b: 6, n: 'F4' }, { b: 7, n: 'A4' }, { b: 8, n: 'B4' }
+        ]
+      },
+
+      // --- 3番（フィナーレ：どんなときにも）（2:02.19 〜 2:42.00） ---
+      {
+        id: 'v3_c', start: 122.19, end: 126.59,
+        badge: 'サビ：ド', navLabel: '🌟 サビ：どんなときにも（ド）',
+        lyrics: 'どーんな ときにも（ド！）🍩',
+        bellCue: 'C4', hitBeats: [1, 7], nextBellCue: 'D4', t3Player: 1, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 2.5, n: 'D4' }, { b: 3, n: 'E4' }, { b: 4.5, n: 'C4' },
+          { b: 5, n: 'E4' }, { b: 6, n: 'C4' }, { b: 7, n: 'E4' }
+        ]
+      },
+      {
+        id: 'v3_d', start: 126.59, end: 131.00,
+        badge: 'サビ：レ', navLabel: '🌟 サビ：れつをくんで（レ）',
+        lyrics: 'れーつを くんでー（レ！）🍋',
+        bellCue: 'D4', hitBeats: [1, 5], nextBellCue: 'E4', t3Player: 1, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'D4' }, { b: 2.5, n: 'E4' }, { b: 3, n: 'F4' }, { b: 3.5, n: 'F4' },
+          { b: 4, n: 'E4' }, { b: 4.5, n: 'D4' }, { b: 5, n: 'F4' }
+        ]
+      },
+      {
+        id: 'v3_e', start: 131.00, end: 135.40,
+        badge: 'サビ：ミ', navLabel: '🌟 サビ：みんなたのしく（ミ）',
+        lyrics: 'みーんな たのしく（ミ！）😊',
+        bellCue: 'E4', hitBeats: [1, 7], nextBellCue: 'F4', t3Player: 2, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'E4' }, { b: 2.5, n: 'F4' }, { b: 3, n: 'G4' }, { b: 4.5, n: 'E4' },
+          { b: 5, n: 'G4' }, { b: 6, n: 'E4' }, { b: 7, n: 'G4' }
+        ]
+      },
+      {
+        id: 'v3_f', start: 135.40, end: 139.80,
+        badge: 'サビ：ファ', navLabel: '🌟 サビ：ファイトもって（ファ）',
+        lyrics: 'ファーイト もってー（ファ！）✊',
+        bellCue: 'F4', hitBeats: [1, 5], nextBellCue: 'G4', t3Player: 2, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'F4' }, { b: 2.5, n: 'G4' }, { b: 3, n: 'A4' }, { b: 3.5, n: 'A4' },
+          { b: 4, n: 'G4' }, { b: 4.5, n: 'F4' }, { b: 5, n: 'A4' }
+        ]
+      },
+      {
+        id: 'v3_g', start: 139.80, end: 144.21,
+        badge: 'サビ：ソ', navLabel: '🌟 サビ：そらをあおいで（ソ）',
+        lyrics: 'そーらを あおいでー（ソ！）🌤️',
+        bellCue: 'G4', hitBeats: [1, 5], nextBellCue: 'A4', t3Player: 3, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'G4' }, { b: 2.5, n: 'C4' }, { b: 3, n: 'D4' }, { b: 3.5, n: 'E4' },
+          { b: 4, n: 'F4' }, { b: 4.5, n: 'G4' }, { b: 5, n: 'A4' }
+        ]
+      },
+      {
+        id: 'v3_a', start: 144.21, end: 148.61,
+        badge: 'サビ：ラ', navLabel: '🌟 サビ：ラララ…（ラ）',
+        lyrics: 'ラーラ ラララララー（ラ！）🎺',
+        bellCue: 'A4', hitBeats: [1, 5], nextBellCue: 'B4', t3Player: 3, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'A4' }, { b: 2.5, n: 'D4' }, { b: 3, n: 'E4' }, { b: 3.5, n: 'F4' },
+          { b: 4, n: 'G4' }, { b: 4.5, n: 'A4' }, { b: 5, n: 'B4' }
+        ]
+      },
+      {
+        id: 'v3_b', start: 148.61, end: 153.01,
+        badge: 'サビ：シ', navLabel: '🌟 サビ：しあわせのうた（シ）',
+        lyrics: 'しーあわせ の うたー（シ！）🌷（さあ…）',
+        bellCue: 'B4', hitBeats: [1, 5], nextBellCue: 'C5', t3Player: 4, drumPattern: 'upbeat',
+        notes: [
+          { b: 1, n: 'B4' }, { b: 2.5, n: 'E4' }, { b: 3, n: 'F4' }, { b: 3.5, n: 'G4' },
+          { b: 4, n: 'A4' }, { b: 4.5, n: 'B4' }, { b: 5, n: 'C5' },
+          { b: 8, n: 'C5' }, { b: 8.5, n: 'B4' }
+        ]
+      },
+      {
+        id: 'v3_bridge', start: 153.01, end: 157.42,
+        badge: 'サビ：つなぎ', navLabel: '👑 3ばん：さあ うたいましょう',
+        lyrics: 'さあ う・た・い・ま・しょう〜！ 👑',
+        bellCue: 'C5', hitBeats: [1, 5], nextBellCue: 'ALL', t3Player: 4, drumPattern: 'chime_end',
+        notes: [
+          { b: 1, n: 'A4' }, { b: 2, n: 'F4' }, { b: 3, n: 'B4' }, { b: 4, n: 'G4' }, { b: 5, n: 'C5' }
+        ]
+      },
+      {
+        id: 'ending', start: 157.42, end: 162.00,
+        badge: 'フィナーレ', navLabel: '🎉 おわり（ソ・ド！ ジャーン！）',
+        lyrics: 'ド・レ・ミ・ファ・ソ・ラ・シ・ド・ソ・ド！！🎉',
+        bellCue: 'ALL', hitBeats: [1, 5, 6], nextBellCue: null, t3Player: 'ALL', drumPattern: 'finale',
+        notes: [
+          { b: 1, n: 'C4' }, { b: 1.5, n: 'D4' }, { b: 2, n: 'E4' }, { b: 2.5, n: 'F4' },
+          { b: 3, n: 'G4' }, { b: 3.5, n: 'A4' }, { b: 4, n: 'B4' }, { b: 4.5, n: 'C5' },
+          { b: 5, n: 'G4' }, { b: 6, n: 'C5' }
+        ]
+      }
+    ];
+
+    // =========================================================
+    // 4. アプリ状態と実音源同期スケジューラ
+    // =========================================================
+    const audio = document.getElementById('bgmAudio');
+    const state = {
+      isPlaying: false,
+      currentSectionIdx: 0,
+      currentBeat4: 1,     // 1, 2, 3, 4 (表示用4拍子)
+      currentBeat8: 1,     // 1〜8 (1フレーズ8拍)
+      lastTriggeredHalfBeat: -1,
+      mode: 'all',
+      selectedBellId: 'C4',
+      selectedTier3Player: 1,
+      stepStop: false,
+      loopSection: false,
+      rafId: null
+    };
+
+    // UI要素参照
+    const btnPlay = document.getElementById('btnPlay');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+    const btnStop = document.getElementById('btnStop');
+    const speedSelect = document.getElementById('speedSelect');
+    const sectionSelect = document.getElementById('sectionSelect');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const currentSectionBadge = document.getElementById('currentSectionBadge');
+    const currentLyrics = document.getElementById('currentLyrics');
+    const nextSectionText = document.getElementById('nextSectionText');
+    const progressBar = document.getElementById('progressBar');
+    const progressMarker = document.getElementById('progressMarker');
+    const beatDots = document.querySelectorAll('.beat-dot');
+    const stepStopOverlay = document.getElementById('stepStopOverlay');
+
+    // 音源エラー時のファイル選択フォールバック
+    audio.addEventListener('error', () => {
+      document.getElementById('audioFallbackBanner').classList.remove('hidden');
+    });
+    document.getElementById('audioFileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        audio.src = URL.createObjectURL(file);
+        document.getElementById('audioFallbackBanner').classList.add('hidden');
+      }
+    });
+
+    // セクションセレクト初期化
+    function initSectionSelect() {
+      sectionSelect.innerHTML = '';
+      SECTIONS.forEach((sec, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = sec.navLabel;
+        sectionSelect.appendChild(opt);
+      });
+    }
+
+    // 時間フォーマット (0:00)
+    function formatTime(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const m = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+    }
+
+    // 再生・一時停止
+    btnPlay.addEventListener('click', () => {
+      sound.ensureResume();
+      if (state.isPlaying) {
+        pausePlayback();
+      } else {
+        startPlayback();
+      }
+    });
+
+    btnStop.addEventListener('click', () => {
+      stopPlayback();
+    });
+
+    function startPlayback() {
+      stepStopOverlay.classList.add('hidden');
+      audio.playbackRate = parseFloat(speedSelect.value);
+      audio.preservesPitch = true;
+      audio.play().then(() => {
+        state.isPlaying = true;
+        playText.textContent = 'ストップ';
+        playIcon.textContent = '⏸️';
+        btnPlay.classList.replace('bg-emerald-500', 'bg-amber-500');
+        btnPlay.classList.replace('hover:bg-emerald-600', 'hover:bg-amber-600');
+        tickLoop();
+      }).catch(err => {
+        console.warn('Audio play blocked or missing file:', err);
+        document.getElementById('audioFallbackBanner').classList.remove('hidden');
+      });
+    }
+
+    function pausePlayback() {
+      state.isPlaying = false;
+      audio.pause();
+      if (state.rafId) cancelAnimationFrame(state.rafId);
+      playText.textContent = 'つづきから';
+      playIcon.textContent = '▶️';
+      btnPlay.classList.replace('bg-amber-500', 'bg-emerald-500');
+      btnPlay.classList.replace('hover:bg-amber-600', 'hover:bg-emerald-600');
+    }
+
+    function stopPlayback() {
+      pausePlayback();
+      stepStopOverlay.classList.add('hidden');
+      playText.textContent = 'スタート';
+      audio.currentTime = 0;
+      state.currentSectionIdx = 0;
+      state.currentBeat4 = 1;
+      state.currentBeat8 = 1;
+      state.lastTriggeredHalfBeat = -1;
+      sectionSelect.value = 0;
+      updateVisuals(0);
+    }
+
+    // 1フレーズ自動停止モーダルのボタン
+    document.getElementById('btnRetryPhrase').addEventListener('click', () => {
+      const curSec = SECTIONS[state.currentSectionIdx];
+      audio.currentTime = curSec.start;
+      state.lastTriggeredHalfBeat = -1;
+      startPlayback();
+    });
+
+    document.getElementById('btnContinueNext').addEventListener('click', () => {
+      const nextIdx = Math.min(SECTIONS.length - 1, state.currentSectionIdx + 1);
+      state.currentSectionIdx = nextIdx;
+      sectionSelect.value = nextIdx;
+      audio.currentTime = SECTIONS[nextIdx].start;
+      state.lastTriggeredHalfBeat = -1;
+      startPlayback();
+    });
+
+    // 再生速度変更
+    speedSelect.addEventListener('change', (e) => {
+      const rate = parseFloat(e.target.value);
+      audio.playbackRate = rate;
+      audio.preservesPitch = true;
+    });
+
+    // セクション移動
+    sectionSelect.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.value);
+      if (SECTIONS[idx]) {
+        state.currentSectionIdx = idx;
+        audio.currentTime = SECTIONS[idx].start;
+        state.lastTriggeredHalfBeat = -1;
+        updateVisuals(audio.currentTime);
+      }
+    });
+
+    // タイムラインバーのクリックでシーク
+    document.getElementById('timelineTrack').addEventListener('pointerdown', (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const targetTime = ratio * (audio.duration || 161.9);
+      audio.currentTime = targetTime;
+      state.lastTriggeredHalfBeat = -1;
+      updateVisuals(targetTime);
+    });
+
+    // 練習モードチェックボックス
+    document.getElementById('chkStepStop').addEventListener('change', (e) => {
+      state.stepStop = e.target.checked;
+    });
+    document.getElementById('chkLoop').addEventListener('change', (e) => {
+      state.loopSection = e.target.checked;
+    });
+
+    // 音量＆お手本サウンドON/OFF（再生前に触ってもエラーにならない）
+    document.getElementById('bgmVolume').addEventListener('input', (e) => {
+      audio.volume = parseFloat(e.target.value);
+    });
+    document.getElementById('synthVolume').addEventListener('input', (e) => {
+      sound.setMasterVolume(parseFloat(e.target.value));
+    });
+    document.getElementById('chkSoundTier1').addEventListener('change', (e) => {
+      sound.setPartEnabled('tier1', e.target.checked);
+    });
+    document.getElementById('chkSoundTier2').addEventListener('change', (e) => {
+      sound.setPartEnabled('tier2', e.target.checked);
+    });
+    document.getElementById('chkSoundTier3').addEventListener('change', (e) => {
+      sound.setPartEnabled('tier3', e.target.checked);
+    });
+
+    audio.addEventListener('ended', () => {
+      stopPlayback();
+    });
+
+    // メイン同期ループ（requestAnimationFrame）
+    function tickLoop() {
+      if (!state.isPlaying) return;
+      const t = audio.currentTime;
+      const curSec = SECTIONS[state.currentSectionIdx];
+
+      // 現在のセクションの終端に到達したかチェック
+      if (curSec && t >= curSec.end - 0.04) {
+        if (state.loopSection) {
+          // 同じフレーズをループ
+          audio.currentTime = curSec.start;
+          state.lastTriggeredHalfBeat = -1;
+          state.rafId = requestAnimationFrame(tickLoop);
+          return;
+        } else if (state.stepStop && state.currentSectionIdx < SECTIONS.length - 1) {
+          // 1フレーズずつ自動停止
+          pausePlayback();
+          const nextSec = SECTIONS[state.currentSectionIdx + 1];
+          document.getElementById('stepStopTitle').textContent = `「${curSec.badge}」 ばっちり！👏`;
+          document.getElementById('stepStopNextInfo').textContent = `つぎは 「${nextSec.navLabel}」 だよ。じゅんびは いいかな？`;
+          stepStopOverlay.classList.remove('hidden');
+          return;
+        }
+      }
+
+      // 現在時刻に対応するセクションを検索
+      const foundIdx = SECTIONS.findIndex(s => t >= s.start && t < s.end);
+      if (foundIdx !== -1 && foundIdx !== state.currentSectionIdx) {
+        state.currentSectionIdx = foundIdx;
+        sectionSelect.value = foundIdx;
+        state.lastTriggeredHalfBeat = -1;
+      }
+
+      const activeSec = SECTIONS[state.currentSectionIdx] || SECTIONS[0];
+      const secElapsed = Math.max(0, t - activeSec.start);
+
+      // 実測テンポ BPM=109.0 (1拍 = BEAT_SEC = 0.55046秒) から正確な拍を計算
+      // セクションの長さに依存せず常に一定の109BPMでカウントする
+      const rawBeatsFromSecStart = secElapsed / BEAT_SEC;
+      const exactBeat8 = (rawBeatsFromSecStart % 8) + 1;
+      state.currentBeat8 = Math.min(8, Math.max(1, Math.floor(exactBeat8)));
+      state.currentBeat4 = ((state.currentBeat8 - 1) % 4) + 1;
+
+      // 0.5拍（8分音符）単位でトリガー判定（フレーム飛びでも取りこぼさない）
+      const halfBeatIndex = Math.floor(rawBeatsFromSecStart * 2);
+      if (halfBeatIndex > state.lastTriggeredHalfBeat) {
+        const startStep = Math.max(0, state.lastTriggeredHalfBeat + 1);
+        for (let step = startStep; step <= halfBeatIndex; step++) {
+          const beatInCycle8 = 1 + (step % 16) * 0.5; // 1.0, 1.5 ... 8.5
+          triggerSyncedSounds(activeSec, beatInCycle8);
+        }
+        state.lastTriggeredHalfBeat = halfBeatIndex;
+      }
+
+      updateVisuals(t, exactBeat8);
+      state.rafId = requestAnimationFrame(tickLoop);
+    }
+
+    // 拍に応じたお手本サウンド発音
+    function triggerSyncedSounds(sec, halfBeat) {
+      // 1. 打楽器（整数拍のみ）
+      if (halfBeat % 1 === 0) {
+        const b = halfBeat;
+        if (sec.drumPattern === 'march') {
+          if (b % 2 === 1) sound.playDrum('bass');
+          else {
+            sound.playDrum('snare');
+            sound.playDrum('suzu');
+          }
+        } else if (sec.drumPattern === 'upbeat') {
+          if (b % 2 === 1) {
+            sound.playDrum('bass');
+            sound.playDrum('suzu');
+          } else {
+            sound.playDrum('snare');
+            sound.playDrum('suzu');
+          }
+        } else if (sec.drumPattern === 'chime_end') {
+          if (b === 1 || b === 5) sound.playDrum('bass');
+          else if (b === 7 || b === 8) sound.playDrum('chime');
+          else sound.playDrum('suzu');
+        } else if (sec.drumPattern === 'finale') {
+          if (b === 1 || b === 5 || b === 6) sound.playDrum('chime');
+          else {
+            sound.playDrum('snare');
+            sound.playDrum('suzu');
+          }
+        }
+      }
+
+      // 2. 木琴メロディ（0.5拍刻み対応）
+      if (sec.notes && sec.notes.length > 0) {
+        sec.notes.forEach(n => {
+          if (Math.abs(n.b - halfBeat) < 0.01) {
+            sound.playXylophone(n.n, 0.38);
+          }
+        });
+      }
+
+      // 3. ベルお手本サウンド
+      if (halfBeat % 1 === 0 && sec.bellCue && sec.hitBeats && sec.hitBeats.includes(halfBeat)) {
+        if (sec.bellCue === 'ALL') {
+          sound.playBell('C5', 1.4);
+          sound.playBell('E4', 1.4);
+          sound.playBell('G4', 1.4);
+        } else if (sec.bellCue === 'ALL_SCALE_UP') {
+          const scale = ['C4','D4','E4','F4','G4','A4','B4','C5'];
+          sound.playBell(scale[halfBeat - 1] || 'C5', 1.0);
+        } else if (sec.bellCue === 'ALL_SCALE_DOWN') {
+          const scale = ['C5','B4','A4','G4','F4','E4','D4','C4'];
+          sound.playBell(scale[halfBeat - 1] || 'C4', 1.0);
+        } else {
+          sound.playBell(sec.bellCue, 1.5);
+        }
+      }
+    }
+
+    // =========================================================
+    // 5. 画面描画と「つぎだよ！（3・2・1）」事前予告ロジック
+    // =========================================================
+    // タッチ＆クリック両対応ヘルパー（ブラウザのAudioContext制限を確実に解除しつつ二重発音を防止）
+    function bindTap(el, handler) {
+      if (!el) return;
+      let lastTime = 0;
+      const wrapped = (e) => {
+        const now = performance.now();
+        if (now - lastTime < 80) return;
+        lastTime = now;
+        handler(e);
+      };
+      el.addEventListener('pointerdown', wrapped);
+      el.addEventListener('click', wrapped);
+    }
+
+    function initAllElements() {
+      initSectionSelect();
+
+      // 全体画面：木琴8音バー（タッチで発音）
+      const kbContainer = document.getElementById('allViewKeyboards');
+      kbContainer.innerHTML = '';
+      BELL_PLAYERS.forEach((p) => {
+        const bar = document.createElement('button');
+        bar.id = `allKb-${p.note}`;
+        bar.className = `flex-1 h-full max-h-20 rounded-2xl ${p.color} border-2 border-white flex flex-col items-center justify-center font-black shadow-sm transition-all active:scale-95 cursor-pointer`;
+        bar.innerHTML = `
+          <span class="text-base sm:text-lg text-white drop-shadow">${p.label}</span>
+          <span class="text-[10px] text-white/90">${p.icon}</span>
+        `;
+        bindTap(bar, () => {
+          sound.playXylophone(p.note, 0.45, true);
+          bar.classList.add('glow-gold', 'scale-105');
+          setTimeout(() => bar.classList.remove('glow-gold', 'scale-105'), 220);
+        });
+        kbContainer.appendChild(bar);
+      });
+
+      // 全体画面：ベル8個カード（タッチで発音）
+      const bellContainer = document.getElementById('allViewBells');
+      bellContainer.innerHTML = '';
+      BELL_PLAYERS.forEach(p => {
+        const bell = document.createElement('button');
+        bell.id = `allBell-${p.id}`;
+        bell.className = `flex flex-col items-center justify-center p-1.5 rounded-2xl border-2 ${p.border} bg-white shadow-xs transition-all h-full max-h-20 active:scale-95 cursor-pointer`;
+        bell.innerHTML = `
+          <span class="text-xl sm:text-2xl leading-none">${p.icon}</span>
+          <span class="font-black text-xs sm:text-sm text-slate-800 mt-0.5">${p.label}</span>
+          <span id="allBellStatus-${p.id}" class="text-[10px] font-bold text-slate-400">おやすみ</span>
+        `;
+        bindTap(bell, () => {
+          sound.playBell(p.note, 1.6, true);
+          bell.classList.add('glow-gold', 'scale-105');
+          setTimeout(() => bell.classList.remove('glow-gold', 'scale-105'), 280);
+        });
+        bellContainer.appendChild(bell);
+      });
+
+      // 全体画面：打楽器4種カード（タッチで発音）
+      const drumContainer = document.getElementById('allViewDrums');
+      drumContainer.innerHTML = '';
+      const drumList = [
+        { id: 'bass', name: 'たいこ', icon: '🥁', sub: '1・3拍目 ドン！', soundType: 'bass' },
+        { id: 'snare', name: 'タンバリン', icon: '🪇', sub: '2・4拍目 パン！', soundType: 'snare' },
+        { id: 'bellRing', name: 'すず', icon: '🔔', sub: 'チリン・シャン♪', soundType: 'suzu' },
+        { id: 'chime', name: 'チャイム', icon: '✨', sub: 'おわりで シャララン', soundType: 'chime' },
+      ];
+      drumList.forEach(d => {
+        const card = document.createElement('button');
+        card.id = `allDrum-${d.id}`;
+        card.className = `bg-slate-50 border-2 border-slate-200 rounded-2xl p-2 flex flex-col items-center justify-center shadow-xs transition-all h-full max-h-20 active:scale-95 cursor-pointer`;
+        card.innerHTML = `
+          <span class="text-2xl leading-none">${d.icon}</span>
+          <span class="font-black text-xs sm:text-sm text-slate-800 mt-0.5">${d.name}</span>
+          <span class="text-[10px] font-bold text-slate-500">${d.sub}</span>
+        `;
+        bindTap(card, () => {
+          sound.playDrum(d.soundType, true);
+          card.classList.add('glow-active', 'scale-105');
+          setTimeout(() => card.classList.remove('glow-active', 'scale-105'), 220);
+        });
+        drumContainer.appendChild(card);
+      });
+
+      // 2段階：マイベル選択ボタン
+      initTier2Selector();
+
+      // 3段階：木琴バー初期化
+      initTier3Bars();
+    }
+
+    function initTier2Selector() {
+      const container = document.getElementById('myBellSelector');
+      container.innerHTML = '';
+      BELL_PLAYERS.forEach(p => {
+        const isSelected = p.id === state.selectedBellId;
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1 rounded-xl text-xs sm:text-sm font-black border-2 transition-all flex items-center space-x-1 ${
+          isSelected ? `${p.color} text-white border-slate-800 scale-105 shadow` : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+        }`;
+        btn.innerHTML = `<span>${p.icon}</span><span>${p.label}</span>`;
+        bindTap(btn, () => {
+          state.selectedBellId = p.id;
+          sound.playBell(p.note, 1.2, true);
+          initTier2Selector();
+          updateVisuals(audio.currentTime);
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function initTier3Bars() {
+      const container = document.getElementById('tier3InteractiveBars');
+      container.innerHTML = '';
+      const heights = ['h-48', 'h-44', 'h-40', 'h-36', 'h-32', 'h-28', 'h-24', 'h-20'];
+
+      BELL_PLAYERS.forEach((p, idx) => {
+        const bar = document.createElement('button');
+        bar.id = `t3Bar-${p.note}`;
+        bar.className = `${heights[idx]} flex-1 max-w-[76px] ${p.color} rounded-2xl flex flex-col items-center justify-between p-2.5 shadow-lg border-4 border-white active:scale-95 transition-all text-white font-black cursor-pointer`;
+        bar.innerHTML = `
+          <span class="text-xl">${p.icon}</span>
+          <span class="text-lg sm:text-2xl drop-shadow">${p.label}</span>
+          <span class="text-xs bg-black/20 px-2 py-0.5 rounded-full">●</span>
+        `;
+        bindTap(bar, () => {
+          sound.playXylophone(p.note, 0.45, true);
+          bar.classList.add('glow-gold', 'scale-105');
+          setTimeout(() => bar.classList.remove('glow-gold', 'scale-105'), 200);
+        });
+        container.appendChild(bar);
+      });
+
+      document.querySelectorAll('.tier3-tab-btn').forEach(btn => {
+        bindTap(btn, () => {
+          document.querySelectorAll('.tier3-tab-btn').forEach(b => {
+            b.className = 'tier3-tab-btn px-3 py-1 rounded-xl bg-slate-100 text-slate-600 font-bold';
+          });
+          btn.className = 'tier3-tab-btn px-3 py-1 rounded-xl bg-indigo-600 text-white font-black shadow';
+          state.selectedTier3Player = parseInt(btn.getAttribute('data-player'));
+          updateVisuals(audio.currentTime);
+        });
+      });
+    }
+
+    // 画面全体の更新
+    function updateVisuals(currentTime = 0, exactBeat8 = 1) {
+      const totalDur = audio.duration || 161.9;
+      timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(totalDur)}`;
+
+      const curSec = SECTIONS[state.currentSectionIdx] || SECTIONS[0];
+      const nextSec = SECTIONS[state.currentSectionIdx + 1] || null;
+      const b4 = state.currentBeat4;
+      const b8 = state.currentBeat8;
+
+      // 進行度バー
+      const pct = Math.min(100, Math.max(0, (currentTime / totalDur) * 100));
+      progressBar.style.width = `${pct}%`;
+      progressMarker.textContent = `${curSec.badge} (${state.currentSectionIdx + 1} / ${SECTIONS.length})`;
+
+      // ヘッダー歌詞・次予告
+      currentSectionBadge.textContent = curSec.badge;
+      currentLyrics.textContent = curSec.lyrics;
+      if (nextSec) {
+        nextSectionText.textContent = nextSec.navLabel.replace(/^[^\s]+\s/, '');
+      } else {
+        nextSectionText.textContent = 'おわり 🎉';
+      }
+
+      // 拍ドット（1・2・3・4）
+      beatDots.forEach(dot => {
+        const b = parseInt(dot.getAttribute('data-beat'));
+        if (b === b4 && state.isPlaying) {
+          dot.className = 'w-8 h-8 rounded-full bg-amber-400 border-2 border-white flex items-center justify-center font-black text-sm text-indigo-950 scale-125 shadow-lg beat-dot transition-all';
+        } else {
+          dot.className = 'w-8 h-8 rounded-full bg-indigo-800 border-2 border-indigo-400 flex items-center justify-center font-black text-sm text-indigo-300 beat-dot transition-all';
+        }
+      });
+
+      // 現在鳴っている木琴のノートを取得
+      const activeNotes = (curSec.notes || []).filter(n => Math.abs(n.b - exactBeat8) < 0.55).map(n => n.n);
+
+      // --- 全体モード描画 ---
+      renderAllMode(curSec, b4, b8, activeNotes);
+
+      // --- 1段階（たいこ）モード描画 ---
+      renderTier1Mode(curSec, b4);
+
+      // --- 2段階（ベル）モード描画（事前カウントダウン付き） ---
+      renderTier2Mode(curSec, b8, exactBeat8);
+
+      // --- 3段階（もっきん）モード描画 ---
+      renderTier3Mode(curSec, b8, activeNotes);
+    }
+
+    function renderAllMode(curSec, b4, b8, activeNotes) {
+      // 3段階バッジ
+      const pBadge = document.getElementById('tier3CurrentPlayer');
+      const teamNames = { 1: '🐶 ①ド・レ チーム', 2: '🐱 ②ミ・ファ チーム', 3: '🐰 ③ソ・ラ チーム', 4: '🐼 ④シ・うたおう チーム' };
+      if (curSec.t3Player === 'ALL') {
+        pBadge.textContent = '🌟 みんなで いっしょに ならそう！';
+        pBadge.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-indigo-600 text-white anim-pulse-ring';
+      } else if (curSec.t3Player) {
+        pBadge.textContent = `${teamNames[curSec.t3Player]} のばん！`;
+        pBadge.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-indigo-100 text-indigo-900 border border-indigo-300';
+      } else {
+        pBadge.textContent = 'おやすみ 🤫（うたをきこう）';
+        pBadge.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-slate-100 text-slate-500';
+      }
+
+      // 木琴ハイライト
+      BELL_PLAYERS.forEach(p => {
+        const el = document.getElementById(`allKb-${p.note}`);
+        if (!el) return;
+        if (activeNotes.includes(p.note) && state.isPlaying) {
+          el.classList.add('glow-active', 'scale-110', 'ring-4', 'ring-amber-300');
+        } else {
+          el.classList.remove('glow-active', 'scale-110', 'ring-4', 'ring-amber-300');
+        }
+      });
+
+      // 2段階ベル（いま鳴らすベル＋つぎ準備のベル）
+      const bellCueText = document.getElementById('tier2CueText');
+      BELL_PLAYERS.forEach(p => {
+        const card = document.getElementById(`allBell-${p.id}`);
+        const st = document.getElementById(`allBellStatus-${p.id}`);
+        if (!card || !st) return;
+
+        card.classList.remove('glow-active', 'glow-gold', 'anim-ready', 'scale-110', 'bg-red-50', 'bg-amber-50');
+        st.textContent = 'おやすみ';
+        st.className = 'text-[10px] font-bold text-slate-400';
+
+        const isCurrent = (curSec.bellCue === p.id) ||
+                          (curSec.bellCue === 'ALL') ||
+                          (curSec.bellCue === 'ALL_SCALE_UP' && BELL_PLAYERS[b8 - 1]?.id === p.id) ||
+                          (curSec.bellCue === 'ALL_SCALE_DOWN' && BELL_PLAYERS[8 - b8]?.id === p.id);
+
+        const isNextReady = (curSec.nextBellCue === p.id && b8 >= 5);
+
+        if (isCurrent && state.isPlaying) {
+          card.classList.add('glow-active', 'scale-110', 'bg-red-50');
+          st.textContent = '🔔 いま！';
+          st.className = 'text-[11px] font-black text-red-600';
+        } else if (isNextReady && state.isPlaying) {
+          card.classList.add('anim-ready', 'bg-amber-50');
+          st.textContent = `👐 つぎ(${9 - b8})`;
+          st.className = 'text-[11px] font-black text-amber-600';
+        }
+      });
+
+      if (curSec.bellCue === 'ALL' || curSec.bellCue === 'ALL_SCALE_UP' || curSec.bellCue === 'ALL_SCALE_DOWN') {
+        bellCueText.textContent = '🌟 みんなで ベルを ならそう！';
+        bellCueText.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-amber-500 text-white anim-pulse-ring';
+      } else if (curSec.bellCue) {
+        const curP = BELL_PLAYERS.find(x => x.id === curSec.bellCue);
+        const nextP = BELL_PLAYERS.find(x => x.id === curSec.nextBellCue);
+        if (b8 >= 5 && nextP) {
+          bellCueText.textContent = `🔔 いま：${curP.label} 👉 👐 つぎじゅんび：${nextP.label}（あと${9 - b8}拍）`;
+        } else {
+          bellCueText.textContent = `🔔 ${curP.icon} 「${curP.label}」 のベルを ならそう！`;
+        }
+        bellCueText.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-red-500 text-white';
+      } else if (curSec.nextBellCue && b8 >= 5) {
+        const nextP = BELL_PLAYERS.find(x => x.id === curSec.nextBellCue);
+        bellCueText.textContent = `👐 つぎは ${nextP.icon}「${nextP.label}」！ かまえて（あと${9 - b8}拍）`;
+        bellCueText.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-amber-400 text-indigo-950 anim-ready';
+      } else {
+        bellCueText.textContent = 'おやすみ 🤫';
+        bellCueText.className = 'text-xs sm:text-sm font-black px-3 py-0.5 rounded-xl bg-slate-100 text-slate-500';
+      }
+
+      // 1段階ドラム
+      const drumStatus = document.getElementById('tier1ActionStatus');
+      ['bass', 'snare', 'bellRing', 'chime'].forEach(id => {
+        const el = document.getElementById(`allDrum-${id}`);
+        if (el) el.classList.remove('glow-active', 'glow-gold', 'scale-105', 'bg-emerald-50', 'bg-amber-50');
+      });
+
+      if (state.isPlaying) {
+        if (curSec.drumPattern === 'chime_end' && (b8 === 7 || b8 === 8)) {
+          drumStatus.textContent = '✨ キラキラチャイム を ならそう！';
+          document.getElementById('allDrum-chime')?.classList.add('glow-gold', 'scale-105', 'bg-amber-50');
+        } else if (b4 % 2 === 1) {
+          drumStatus.textContent = '🥁 たいこ「ドン！」（1・3拍目）';
+          document.getElementById('allDrum-bass')?.classList.add('glow-active', 'scale-105', 'bg-emerald-50');
+          document.getElementById('allDrum-bellRing')?.classList.add('scale-105', 'bg-emerald-50');
+        } else {
+          drumStatus.textContent = '🪇 タンバリン・すず「タン！」（2・4拍目）';
+          document.getElementById('allDrum-snare')?.classList.add('glow-active', 'scale-105', 'bg-emerald-50');
+          document.getElementById('allDrum-bellRing')?.classList.add('scale-105', 'bg-emerald-50');
+        }
+      } else {
+        drumStatus.textContent = 'おやすみ 🤫';
+      }
+    }
+
+    function renderTier1Mode(curSec, b4) {
+      const bigChar = document.getElementById('tier1BigChar');
+      const bigEmoji = document.getElementById('tier1BigEmoji');
+      const bigSub = document.getElementById('tier1BigSub');
+      const bigText = document.getElementById('tier1BigText');
+
+      if (!state.isPlaying) {
+        bigEmoji.textContent = '🥁';
+        bigSub.textContent = 'タッチしてね';
+        bigText.textContent = 'たいこを タッチして ならしてみよう！';
+        return;
+      }
+
+      if (b4 % 2 === 1) {
+        bigEmoji.textContent = '🥁';
+        bigSub.textContent = `${b4}：ドン！`;
+        bigChar.className = 'w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-emerald-500 border-8 border-white flex flex-col items-center justify-center text-white shadow-2xl glow-active cursor-pointer anim-pop-hit';
+        bigText.textContent = '🥁 たいこ を「ドン！」';
+      } else {
+        bigEmoji.textContent = '🪇';
+        bigSub.textContent = `${b4}：タン！`;
+        bigChar.className = 'w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-teal-500 border-8 border-teal-200 flex flex-col items-center justify-center text-white shadow-xl cursor-pointer';
+        bigText.textContent = '🪇 タンバリン・すず を「タン！」';
+      }
+    }
+
+    function renderTier2Mode(curSec, b8, exactBeat8) {
+      const player = BELL_PLAYERS.find(p => p.id === state.selectedBellId) || BELL_PLAYERS[0];
+      const stageCard = document.getElementById('myBellStageCard');
+      const badge = document.getElementById('myBellCueBadge');
+      const circle = document.getElementById('myBellBigCircle');
+      const icon = document.getElementById('myBellBigIcon');
+      const noteLabel = document.getElementById('myBellBigNote');
+      const word = document.getElementById('myBellBigWord');
+      const countBar = document.getElementById('myBellCountBar');
+      const countText = document.getElementById('myBellCountText');
+
+      icon.textContent = player.icon;
+      noteLabel.textContent = player.label;
+      word.textContent = player.word;
+      circle.style.backgroundColor = player.hex;
+
+      const isMyTurnNow = (curSec.bellCue === player.id) ||
+                          (curSec.bellCue === 'ALL') ||
+                          (curSec.bellCue === 'ALL_SCALE_UP') ||
+                          (curSec.bellCue === 'ALL_SCALE_DOWN');
+
+      const isMyTurnNext = (curSec.nextBellCue === player.id) || (curSec.nextBellCue === 'ALL');
+
+      if (isMyTurnNow && state.isPlaying) {
+        // 自分の出番のフレーズ中！
+        const isHitBeat = (curSec.hitBeats || [1, 7]).includes(b8);
+        stageCard.className = 'flex-1 my-2 bg-red-50 rounded-3xl p-5 border-4 border-red-400 shadow-2xl flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden transition-colors';
+        
+        if (isHitBeat) {
+          badge.textContent = '🔔 いま！ ベルを ならそう！（ポーン！）';
+          badge.className = 'text-xl sm:text-3xl font-black px-8 py-2.5 rounded-full bg-red-600 text-white anim-pulse-ring shadow-lg';
+          circle.className = 'w-48 h-48 sm:w-56 sm:h-56 rounded-full text-white flex flex-col items-center justify-center shadow-2xl border-8 border-white scale-110 glow-active cursor-pointer';
+        } else {
+          badge.textContent = `🎵 「${player.label}」のうた！ リズムにあわせて ならそう`;
+          badge.className = 'text-lg sm:text-2xl font-black px-6 py-2 rounded-full bg-red-500 text-white shadow';
+          circle.className = 'w-48 h-48 sm:w-56 sm:h-56 rounded-full text-white flex flex-col items-center justify-center shadow-xl border-8 border-white cursor-pointer';
+        }
+        countBar.style.width = `${(b8 / 8) * 100}%`;
+        countBar.className = 'bg-red-500 h-full transition-all duration-100';
+        countText.textContent = `🌟 あなたの ばん です！（${b8} / 8拍）`;
+
+      } else if (isMyTurnNext && state.isPlaying) {
+        // ★ 次のフレーズが自分の番！事前カウントダウン予告！
+        const remainBeats = Math.max(1, 9 - b8);
+        stageCard.className = 'flex-1 my-2 bg-amber-50 rounded-3xl p-5 border-4 border-amber-400 shadow-xl flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden transition-colors';
+        badge.textContent = `👐 つぎ あなたの ばん！ じゅんび！（あと ${remainBeats}）`;
+        badge.className = 'text-xl sm:text-2xl font-black px-6 py-2 rounded-full bg-amber-400 text-indigo-950 anim-ready shadow-md';
+        circle.className = 'w-48 h-48 sm:w-56 sm:h-56 rounded-full text-white flex flex-col items-center justify-center shadow-xl border-8 border-amber-300 anim-ready cursor-pointer';
+        countBar.style.width = `${((b8 - 1) / 8) * 100}%`;
+        countBar.className = 'bg-amber-400 h-full transition-all duration-100';
+        countText.textContent = `👐 ベルを もって かまえよう！（カウントダウン：${remainBeats}）`;
+
+      } else {
+        // 待機中（おやすみ）
+        stageCard.className = 'flex-1 my-2 bg-white rounded-3xl p-5 border-4 border-slate-200 shadow-md flex flex-col items-center justify-center text-center space-y-4 relative overflow-hidden transition-colors';
+        badge.textContent = '🤫 おやすみ（おともだちの 音を きこう）';
+        badge.className = 'text-base sm:text-xl font-bold px-6 py-2 rounded-full bg-slate-200 text-slate-600';
+        circle.className = 'w-48 h-48 sm:w-56 sm:h-56 rounded-full text-white flex flex-col items-center justify-center shadow-md border-4 border-white/70 opacity-75 cursor-pointer';
+        countBar.style.width = '0%';
+        countText.textContent = 'でばんが ちかづいたら きいろく ひかるよ';
+      }
+    }
+
+    function renderTier3Mode(curSec, b8, activeNotes) {
+      const helpText = document.getElementById('tier3HelpText');
+      const teamNames = { 1: '🐶 ①ド・レ チーム', 2: '🐱 ②ミ・ファ チーム', 3: '🐰 ③ソ・ラ チーム', 4: '🐼 ④シ・うたおう チーム' };
+      const myTeamName = teamNames[state.selectedTier3Player];
+
+      if (curSec.t3Player === 'ALL') {
+        helpText.textContent = '🌟 みんなで いっしょに ひかる けんばんを たたこう！';
+        helpText.className = 'text-base sm:text-xl font-black text-amber-600';
+      } else if (curSec.t3Player === state.selectedTier3Player) {
+        helpText.textContent = `🌟 ${myTeamName} の ばん です！ ひかる けんばんを たたこう！`;
+        helpText.className = 'text-base sm:text-xl font-black text-red-600';
+      } else {
+        const nextSec = SECTIONS[state.currentSectionIdx + 1];
+        if (nextSec && nextSec.t3Player === state.selectedTier3Player && b8 >= 5) {
+          helpText.textContent = `👐 つぎは ${myTeamName} の ばん！ バチを かまえよう！（あと ${9 - b8}）`;
+          helpText.className = 'text-base sm:text-xl font-black text-amber-600';
+        } else {
+          helpText.textContent = `🤫 いまは おやすみ。おともだちの えんそうを きこう！`;
+          helpText.className = 'text-base sm:text-lg font-bold text-slate-500';
+        }
+      }
+
+      BELL_PLAYERS.forEach(p => {
+        const bar = document.getElementById(`t3Bar-${p.note}`);
+        if (!bar) return;
+        if (activeNotes.includes(p.note) && state.isPlaying) {
+          bar.classList.add('glow-active', 'scale-110', 'ring-4', 'ring-amber-300', '-translate-y-2');
+        } else {
+          bar.classList.remove('glow-active', 'scale-110', 'ring-4', 'ring-amber-300', '-translate-y-2');
+        }
+      });
+    }
+
+    // =========================================================
+    // 6. モードタブ切り替え & タッチ練習イベント（pointerdown & click 両対応）
+    // =========================================================
+    const modeTabs = document.querySelectorAll('.mode-tab-btn');
+    const viewPanels = {
+      all: document.getElementById('viewModeAll'),
+      tier1: document.getElementById('viewModeTier1'),
+      tier2: document.getElementById('viewModeTier2'),
+      tier3: document.getElementById('viewModeTier3'),
+    };
+
+    modeTabs.forEach(tab => {
+      bindTap(tab, () => {
+        const mode = tab.getAttribute('data-mode');
+        state.mode = mode;
+        modeTabs.forEach(t => {
+          if (t.getAttribute('data-mode') === mode) {
+            t.className = 'mode-tab-btn px-2.5 py-1 rounded-xl font-black text-xs transition-all bg-white text-indigo-700 shadow-sm';
+          } else {
+            t.className = 'mode-tab-btn px-2.5 py-1 rounded-xl font-bold text-xs text-slate-600 hover:text-slate-900 transition-all';
+          }
+        });
+        Object.keys(viewPanels).forEach(k => {
+          viewPanels[k].classList.toggle('hidden', k !== mode);
+        });
+      });
+    });
+
+    // 1段階：打楽器パッドタッチ
+    const drumVisualMap = {
+      bass:  { emoji: '🥁', sub: 'ドン！', text: '🥁 たいこ を「ドン！」' },
+      snare: { emoji: '🪇', sub: 'パン！', text: '🪇 タンバリン を「パン！」' },
+      suzu:  { emoji: '🔔', sub: 'チリン♪', text: '🔔 すず を「チリン・シャン♪」' },
+      chime: { emoji: '✨', sub: 'キラキラ', text: '✨ チャイム を「シャララ〜ン！」' }
+    };
+    document.querySelectorAll('.drum-pad-btn').forEach(btn => {
+      bindTap(btn, () => {
+        const type = btn.getAttribute('data-drum');
+        sound.playDrum(type, true);
+        const info = drumVisualMap[type] || drumVisualMap.bass;
+        document.getElementById('tier1BigEmoji').textContent = info.emoji;
+        document.getElementById('tier1BigSub').textContent = info.sub;
+        document.getElementById('tier1BigText').textContent = info.text;
+        const bigChar = document.getElementById('tier1BigChar');
+        bigChar.classList.remove('anim-pop-hit');
+        void bigChar.offsetWidth;
+        bigChar.classList.add('anim-pop-hit');
+      });
+    });
+
+    bindTap(document.getElementById('tier1BigChar'), () => {
+      sound.playDrum('bass', true);
+      const bigChar = document.getElementById('tier1BigChar');
+      bigChar.classList.remove('anim-pop-hit');
+      void bigChar.offsetWidth;
+      bigChar.classList.add('anim-pop-hit');
+    });
+
+    bindTap(document.getElementById('tier1BigText'), () => {
+      sound.playDrum('bass', true);
+      const bigChar = document.getElementById('tier1BigChar');
+      bigChar.classList.remove('anim-pop-hit');
+      void bigChar.offsetWidth;
+      bigChar.classList.add('anim-pop-hit');
+    });
+
+    // 2段階：ベルタッチ
+    function triggerMyBellTap() {
+      const player = BELL_PLAYERS.find(p => p.id === state.selectedBellId);
+      if (player) {
+        sound.playBell(player.note, 1.8, true);
+        const el = document.getElementById('myBellBigCircle');
+        el.classList.remove('anim-pop-hit');
+        void el.offsetWidth;
+        el.classList.add('anim-pop-hit', 'glow-gold');
+        setTimeout(() => el.classList.remove('glow-gold'), 350);
+      }
+    }
+    bindTap(document.getElementById('tapBellBtn'), triggerMyBellTap);
+    bindTap(document.getElementById('myBellBigCircle'), triggerMyBellTap);
+
+    // 初期化
+    window.addEventListener('DOMContentLoaded', () => {
+      initAllElements();
+      updateVisuals(0, 1);
+    });
+  </script>
+</body>
+</html>
